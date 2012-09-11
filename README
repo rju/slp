@@ -1,0 +1,63 @@
+	slp - Simplify the writing of beamer tex slides by providing shorthand macros
+
+
+
+  Copyright (C) 2012 Reiner Jung
+
+  slp is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+Comments are welcome.
+
+	- Reiner Jung <rju@informatik.uni-kiel.de>
+
+Simple language description:
+
+The processor work with different interpretation modes. On start it is in
+top mode. Top mode allows the definition of title, date, author, part, sections
+and frames. Whitespaces and newlines are ignored.
+
+To define a title write
+
+title: TITLE-TEXT
+
+TITLE-TEXT is a char sequence which ends with a newline \n
+
+The commands date:, author: work similar. They can be used to define the author
+and the presentation date.
+
+The command part: followed by a char sequence (ends with newline) creates an
+\part{VALUE} in the output.
+
+The command sec: followed by a char sequence (ends with newline) creates an
+\section{VALUE} in the output.
+
+A frame is started with >. For example
+
+> MY-FRAME-TITLE
+
+The must be a whitespace after the > and then the frame title is the following
+text until the newline.
+
+Inside a frame another set of commands is valid. In that context structures can
+be defined with a line starting with '
+
+'My Structure
+
+which generates to \structure{VALUE}
+
+Images are created with img:[properties]file-reference
+
+
+
