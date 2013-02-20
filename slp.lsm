@@ -1,0 +1,21 @@
+Begin3
+Title:		slp
+Version:	0.1.0
+Entered-date:	2013-02-20
+Description:	Simplify the writing of beamer tex slides by providing shorthand macros
+		slp.lsm.  Generated from slp.lsm.in by configure.
+		Please edit slp.lsm.in to fix the Keywords and
+		Primary-site entries, add several more lines of
+		description here if appropriate, and to delete these
+		instructions.
+Keywords:	[substitute your keywords here]
+Author: 	rju@informatik.uni-kiel.de (Reiner Jung)
+Maintained-by:	rju@informatik.uni-kiel.de (Reiner Jung)
+Primary-site:	metlab.unc.edu pub/Linux/apps/some/directory
+		31k slp-0.1.0.tar.gz
+		500  slp.lsm
+Alternate-site: 
+Original-site:  
+Platforms:      
+Copying-policy:	GNU copyleft
+End

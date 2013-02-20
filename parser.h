@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <stdlib.h> 
+#include <config.h>
 
 #define TITLE        101
 #define AUTHOR       102
@@ -44,6 +45,10 @@
 #define PART         131
 #define HEAD_END     132
 #define DESC_SEP     133
+#define O_BRACE      134
+#define C_BRACE      135
+#define ANIMATION    136
+#define NUMBER       137
 
 #define ZERO         0
 

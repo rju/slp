@@ -1,6 +1,6 @@
 bin_PROGRAMS=slp
-slp_SOURCES=scanner.l parser.c slp.c xmalloc.c system.h aclocal.m4 slp.1
-slp_CFLAGS=-g -Wall 
+slp_SOURCES=scanner.l parser.c slp.c system.h aclocal.m4 slp.1
+slp_CFLAGS=-g -Wall -std=c99
 
 #  uncomment the following if slp requires the math library
 #slp_LDADD=-lm

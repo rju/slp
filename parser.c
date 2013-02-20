@@ -22,7 +22,8 @@ char *token_names[] = {
 	"frame","structure","item",
 	"NEWLINE","INDENT","space","UNCOVER",
 	"OVERLAY","ONLY","URL","column","column separator","end block","overlay range",
-	"property", "comma", "part", "end of listing head", "description separater" };
+	"property", "comma", "part", "end of listing head", "description separater",
+	"open brace", "close brace" };
 
 /* ------------------------------------ *
  * local function declaration for       *
@@ -34,11 +35,15 @@ int parse_author();
 int parse_date();
 int parse_listing();
 int parse_figure();
+int parse_figure_inner(int index);
+int parse_animation();
 int parse_structure();
 int parse_item();
 int parse_enumerate();
-int parse_properties();
-int parse_frame_body();
+char* parse_properties();
+int parse_frame_body(const char *commanf, const int subslide);
+int parse_frame_body_loop (const int subslide);
+int parse_frame_body_single (const int subslide);
 int parse_url();
 int parse_column();
 int parse_column_sep();
@@ -128,6 +133,9 @@ int parse() {
 		case IMAGE:
 			fprintf(stderr, "[%d] Top mode: figure not allowed in top mode.\n",yylineno);
 			return 0;
+		case ANIMATION:
+			fprintf(stderr, "[%d] Top mode: figure not allowed in top mode.\n",yylineno);
+			return 0;
 		case LISTING:
 			fprintf(stderr, "[%d] Top mode: listing not allowed in top mode.\n", yylineno);
 			return 0;
@@ -193,25 +201,22 @@ int parse_frame() {
 		while (token != EOF) {
 			switch (token) {
 			case UNCOVER:
-				fprintf(ofile,"\\uncover<%d->{",subslide++);
-				if (!parse_frame_body()) return 0;
-				fprintf(ofile,"}\n");
+				if (!parse_frame_body("uncover",subslide++)) return 0;
 				break;
 			case OVERLAY:
-				fprintf(ofile,"\\overlay<%d->{",subslide++);
-				if (!parse_frame_body()) return 0;
-				fprintf(ofile,"}\n");
+				if (!parse_frame_body("overlay",subslide++)) return 0;
 				break;
 			case ONLY:
-				fprintf(ofile,"\\only<%d>{",subslide++);
-				if (!parse_frame_body()) return 0;
-				fprintf(ofile,"}\n");
+				if (!parse_frame_body("only",subslide++)) return 0;
 				break;
 			case STRUCT:
 				if (!parse_structure()) return 0;
 				break;
 			case IMAGE:
 				if (!parse_figure()) return 0;
+				break;
+			case ANIMATION:
+				if (!parse_animation()) return 0;
 				break;
 			case LISTING:
 				if (!parse_listing()) return 0;
@@ -259,19 +264,97 @@ int parse_frame() {
 
 /* parser and renderer for nested frames
  */
-int parse_frame_body() {
+int parse_frame_body(const char *command, const int subslide) {
+	int result = 0;
 	token = yylex();
+	if (token == OVERLAY_CODE) {
+		fprintf(ofile,"\\%s%s{",command,data);
+		token = yylex();
+	} else {		
+		fprintf(ofile,"\\%s<%d->{",command,subslide);
+	}
+	if ( token == O_BRACE ) {
+		token = yylex();
+		result = parse_frame_body_loop (subslide);
+	} else {
+		result = parse_frame_body_single (subslide);
+	}
+
+	fprintf(ofile,"}\n");
+	if ( token == C_BRACE )
+		token = yylex();
+	return result;
+}
+
+/* parser and renderer for nested frames which use grouping
+ */
+int parse_frame_body_loop (const int subslide) {
+	while (token != EOF) {
+		switch (token) {
+		case STRUCT:
+			if (!parse_structure()) return 0;
+			break;
+		case IMAGE:
+			if (!parse_figure()) return 0;
+			break;
+		case ANIMATION:
+			if (!parse_animation()) return 0;
+			break;
+		case LISTING:
+			if (!parse_listing()) return 0;
+			break;
+		case ITEM:
+			if (parse_item(1,item_type) == -1) return 0;
+			break;
+		case URL:
+			if (!parse_url()) return 0;
+			break;
+		case COLUMN:
+			if (parse_column() == -1) return 0;
+			break;
+		case COLUMN_SEP:
+			if (parse_column_sep() == -1) return 0;
+			break;
+		case END:
+			if (parse_end() == -1) return 0;
+			break;
+		case C_BRACE:
+			return 1;
+		case NEWLINE: // ignore empty newline
+			token = yylex();
+			break;
+		default:
+			fprintf(stderr, "[%d] Frame mode: illegal token %s found.\n", yylineno, get_token_name(token));
+			fprintf(stderr, "Expected commands: uncover (+), overlay (#), only (~), structure ('), image, listing, item or URL\n");
+			fprintf(stderr, "\tor end frame mode with: New frame, section, title, author, date or an end of file\n");
+			return 0;
+		}
+	}
+	return 1;
+}
+
+/* parser and renderer for nested frames, single line
+ */
+int parse_frame_body_single (const int subslide) {
 	switch (token) {
 	case STRUCT:
 		return parse_structure();
+		break;
 	case IMAGE:
 		return parse_figure();
+		break;
+	case ANIMATION:
+		return parse_animation();
+		break;
 	case LISTING:
 		return parse_listing();
+		break;
 	case ITEM:
 		return parse_item(1,item_type);
+		break;
 	case URL:
 		return parse_url();
+		break;
 	default:
 		fprintf(stderr,"[%d] Overlay mode: Illegal token %s\n", yylineno, get_token_name(token));
 		fprintf(stderr,"Expected commands: structure ('), image, listing, item and URL\n");
@@ -408,6 +491,18 @@ int parse_listing() {
 /*
  * process figures
  */
+int parse_figure() {
+	fprintf(ofile,"\\begin{figure}\n");
+	if (parse_figure_inner(0)) {
+		fprintf(ofile,"\\end{figure}\n");
+		return 1;
+	} else
+		return 0;
+}
+
+/*
+ * process figures
+ */
 int parse_figure_inner(int index) {
 	char *overlay_code = "";
 
@@ -417,55 +512,106 @@ int parse_figure_inner(int index) {
 		token = yylex();
 	}
 	if (token == PSEQ_START) {
-		fprintf(ofile,"\\includegraphics%s[",overlay_code);
-		if (parse_properties() == 0)  {
+		char *properties;
+		if ((properties = parse_properties()) != NULL)  {
 			if ((token = yylex()) == VALUE) {
-				fprintf(ofile,"]{%s}\n", data);
+				fprintf(ofile,"\\includegraphics%s[%s]{%s}\n",
+						overlay_code, properties, data);
 				token = yylex();
 				if (token == IMAGE) // is an image group
 					parse_figure_inner(index+1);
-				return 0;
+				return 1;
 			} else {
-				fprintf(stderr, "[%d] Figure mode: Missing image, found %s instead\n", yylineno, get_token_name(token));
-				return -1;
+				fprintf(stderr, 
+					"[%d] Figure mode: Missing image, found %s instead\n",
+					yylineno, get_token_name(token));
+				return 0;
 			}
 		} else
-			return -1;
+			return 0;
 	} else {
-		fprintf(stderr, "[%d] Figure mode: Missing [, found %s instead\n", yylineno, get_token_name(token));
-		return -1;
+		fprintf(stderr, "[%d] Figure mode: Missing [, found %s instead\n", 
+			yylineno, get_token_name(token));
+		return 0;
 	}
 }
 
-int parse_figure() {
-	fprintf(ofile,"\\begin{figure}\n");
-	if (parse_figure_inner(0) == 0) {
-		fprintf(ofile,"\\end{figure}\n");
-		return 1;
-	} else
+/*
+ * process animations
+ */
+int parse_animation() {
+	char **numbers = (char**)malloc(1000); // this is dirty in many ways.
+	int numbers_max = 0;
+	char *overlay_code = NULL;
+
+	token = yylex();
+	if (token == OVERLAY_CODE) {
+		overlay_code = data;
+		token = yylex();
+	}
+	while (token == NUMBER) {
+		numbers[numbers_max++] = data;
+		token = yylex();
+		if (token == PROP_SEP) 
+			token = yylex();
+	}
+	if (token == PSEQ_START) {
+		char *properties;
+		if ((properties = parse_properties()) != NULL)  {
+			if ((token = yylex()) == VALUE) {
+				if (overlay_code != NULL)
+					fprintf(ofile,"\\only%s{\\begin{figure}\n",overlay_code);
+				else
+					fprintf(ofile,"\\begin{figure}\n");
+				for (int i=0;i<numbers_max;i++) {
+					fprintf(ofile,"\\includegraphics<%s>[%s,page=%s]{%s}\n",
+						numbers[i], properties, numbers[i], data);
+				}
+				if (overlay_code != NULL)
+					fprintf(ofile,"\\end{figure}}\n");
+				else
+					fprintf(ofile,"\\end{figure}\n");
+				token = yylex();
+				return 1;
+			} else {
+				fprintf(stderr, 
+					"[%d] Figure mode: Missing image, found %s instead\n",
+					yylineno, get_token_name(token));
+				return 0;
+			}
+		} else {
+			return 0;
+		}
+	} else {
+		fprintf(stderr, "[%d] Figure mode: Missing [, found %s instead\n", 
+			yylineno, get_token_name(token));
 		return 0;
+	}
 }
 
 /*
  * parse properties
  */
-int parse_properties() {
+char* parse_properties() {
+	char *result = strdup("");
 	while ((token = yylex()) != PSEQ_END) {
 		switch (token) {
 		case PROPERTY:
-			fprintf(ofile,"%s",data);
+			result = strcat(realloc(result,
+				(result!=NULL?strlen(result):0)+strlen(data)+1),data);
 			break;
 		case PROP_SEP:
-			fprintf(ofile,",");
+			result = strcat(realloc(result,
+				(result!=NULL?strlen(result):0)+2),",");
 			break;
 		case PSEQ_END:
 			break;
 		default:
 			fprintf(stderr, "[%d] Figure mode, property sequence: Missing ]. Found %s\n", yylineno,get_token_name(token));
-			return -1;
+			return NULL;
 		}
 	}
-	return 0;
+	return result;
 }
 
 /*
@@ -476,7 +622,15 @@ int parse_structure() {
 		if (structure_count > 0)
 			fprintf(ofile,"\\vskip1em\n");
 		structure_count++;
-		fprintf(ofile,"\\structure{%s}\n", data);
+		char *sym;
+		for (sym=data; (*sym != 0) && (*sym != ':');sym++);
+		if (*sym == ':') {
+			*sym = 0;
+			sym++;
+			fprintf(ofile,"\\structure{%s} %s\n", data, sym);
+		} else {
+			fprintf(ofile,"\\structure{%s}\n", data);
+		}
 		token = yylex();
 		return 1;
 	} else {
@@ -595,6 +749,7 @@ int parse_item(int indent, char *mode) {
 			case COLUMN:
 			case COLUMN_SEP:
 			case END:
+			case C_BRACE:
 			case ZERO: // leave frame => close all item list
 				fprintf(ofile,"\\end{%s}\n",mode);
 				return 0;

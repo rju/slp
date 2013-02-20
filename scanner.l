@@ -16,7 +16,7 @@ int start_condition_top = 0; // start a lowest element
 
 DIGIT [0-9]
 ID [a-z][a-z0-9]*
-OVERLAYCHAR [0-9\-]
+OVERLAYCHAR [0-9\-,]
 VALUECHAR [A-Za-z0-9\_\\\.\"\{\}]
 LABELCHAR [^=\n\t]
 
@@ -30,6 +30,7 @@ LABELCHAR [^=\n\t]
 %x property
 %x prop_value
 %x label
+%x number
 
 %%
 
@@ -38,6 +39,7 @@ LABELCHAR [^=\n\t]
 "date:" {push(value); return DATE;}
 "sec:" {push(value); return SECTION;}
 "img:" {push(value); push(property); return IMAGE;}
+"anim:" {push(value); push(property); push(number); return ANIMATION;}
 "url:" {push(value); return URL;}
 "part:" { push(value); return PART; }
 
@@ -55,7 +57,35 @@ LABELCHAR [^=\n\t]
 "sep:" { return COLUMN_SEP; }
 "end:" { return END; }
 
-<property>"<"{OVERLAYCHAR}+">" { 
+"<"{OVERLAYCHAR}+">" { 
+	data = strcpy((char*)malloc(strlen(yytext)+1),yytext);
+	return OVERLAY_CODE; 
+}
+"{" {
+	return O_BRACE;
+}
+
+"}" {
+	return C_BRACE;
+}
+
+"\n" { return NEWLINE; } /* eat up whitespace */
+"\t"+ {
+	data = strcpy((char*)malloc(strlen(yytext)+1),yytext);
+	return INDENT;
+}
+"  "+ {
+	data = (char*)malloc(strlen(yytext)/2+1);
+	int i;
+	char *ch = data;
+	for (i=0;i<strlen(yytext)/2;i++,ch++)
+		*ch='\t';
+	*ch=0;
+	return INDENT;
+}
+" " { return SPACE; }
+
+<property,number>"<"{OVERLAYCHAR}+">" { 
 	data = strcpy((char*)malloc(strlen(yytext)+1),yytext);
 	return OVERLAY_CODE; 
 }
@@ -109,8 +139,17 @@ LABELCHAR [^=\n\t]
 	data = strcpy((char*)malloc(strlen(yytext)+1),yytext);
 	return PROPERTY;
 }
-<property>"," {
+<property,number>"," {
 	return PROP_SEP;
+}
+
+<number>{DIGIT}* {
+	data = strcpy((char*)malloc(strlen(yytext)+1),yytext);
+	return NUMBER;
+}
+<number>"[" {
+	pop();
+	return PSEQ_START;
 }
 
 <value>.*"\n" {
@@ -118,22 +157,6 @@ LABELCHAR [^=\n\t]
 	pop();
 	return VALUE;
 }
-
-"\n" { return NEWLINE; } /* eat up whitespace */
-"\t"+ {
-	data = strcpy((char*)malloc(strlen(yytext)+1),yytext);
-	return INDENT;
-}
-"  "+ {
-	data = (char*)malloc(strlen(yytext)/2+1);
-	int i;
-	char *ch = data;
-	for (i=0;i<strlen(yytext)/2;i++,ch++)
-		*ch='\t';
-	*ch=0;
-	return INDENT;
-}
-" " { return SPACE; }
 
 %%
 
