@@ -1,0 +1,159 @@
+title: Type Systems for Domain-specific Langauges
+author: Reiner Jung, Christian Schneider
+
+sec: Motivation
+
+> DSL Projects
+
+'Large DSL Project
+- <1-> Goal: DSL for railway control centers
+- <2-> Feature Driven
+- <3-> DSLs for various purposes
+- <4-> But one XML output file (PLCOpen.xml)
+
+$+<5->{'Agile grammar development
+# <5-> Domain analysis
+# <6-> Grammar development
+# <7-> Evaluation with users and case studies
+# <8-> Improving domain knowledge 
+# <8-> goto 2
+}
+$+<9->{'Not \textbf{so} agile
+- Generator development
+}
+
+> DSL Development
+
+'Problems
+- <1-> Development of semantic checks 
+- <2-> Generator composition
+- <3-> Mapping of source to target language 
+  -  data structures and 
+  -  expressions
+
+$+<4->{'Result
+- <4-> Incomplete generators
+- <5-> Unmaintainable generator after 2 years
+- <6-> Language evolution not possible
+}
+
+> Solution
+
+'Question: How could we improve generator development?
+
+$+<2->{'Idea
+- Look into compiler development techniques
+- <3-> Adapt techniques for DSL development
+- <4-> Integrate with Xtext
+}
+
+sec: Related Work
+
+> Type Checking
+
+$+<1->{'Xtext/TS
+- Type system framework
+- DSL to write type checker
+- Compact notation
+- Limited typing features
+}
+
+$+<2->{'XSemantics
+- DSL to define type systems
+- Rich syntax
+- Compact notation
+- Uses type system terminology (judgement, rule, \dots)
+}
+
+> Xbase
+
+$+<1->{'Features
+- Xtext-based expression framework
+- Uses Java-type system
+- Provides Java type checking
+- Provides partial code generation
+}
+
+$+<2->{'Downside
+- Works only with Java
+- All types are like Java-types
+}
+
+sec: Approach
+
+> Code Generation
+
+anim:1,2,3,4,5,6,7,8,9[width=\textwidth] animations/language-stack
+
+> Concept Selection
+
+'Concept A: Generic Approach
+- Source and target type system different
+- Different targets
+
+'Concept B1: 
+- Source and target type system different
+- Target language: XMI or XML
+
+'Concept B2:
+- Source and target type system different
+- Target language: Text (C, Fortran, Java, \ldots)
+
+'Concept C
+- Source and target type system similar
+- Target language: Text
+
+> Meta-Modeling 
+
+anim:1,2,3,4,5,6,7,8,9,10,11,12[width=\textwidth] animations/taxonomy
+
+> Base Type Integration
+
+-- Java - Base Types of the Use Case Language for App Development --
+public enum BaseTypes {
+   BOOLEAN, INT, FLOAT, STRING; /* base types */
+
+   public String lowerCaseName() {
+      return this.name().toLowerCase();
+   }
+}
+--[1(2)]
+
+
+> Grammar
+
+-- Java - Base Types of the Use Case Language for App Development --
+public enum BaseTypes {
+   BOOLEAN, INT, FLOAT, STRING; /* base types */
+
+   public String lowerCaseName() {
+      return this.name().toLowerCase();
+   }
+}
+--[1(2)]
+
+
+> Type Resolution
+
+-- Java - Base Types of the Use Case Language for App Development --
+public enum BaseTypes {
+   BOOLEAN, INT, FLOAT, STRING; /* base types */
+
+   public String lowerCaseName() {
+      return this.name().toLowerCase();
+   }
+}
+--[1(2)]
+
+
+> Target Language Integration
+
+> Type Transformation
+
+sec: Conclusion
+
+> Summary
+
+> Outlook
+
+

@@ -50,6 +50,8 @@ int parse_column_sep();
 int parse_end();
 int parse_part();
 
+#define APPEND(buffer,value) strcat(realloc(buffer,strlen(buffer)+strlen(value)+1),value)
+
 /* ------------------------------------ */
 /* global properties                    */
 
@@ -443,47 +445,102 @@ int parse_date() {
 	}
 }
 
+/* ------------------------------ */
+/* highlighting lines             */
+
+char* parse_hl_lines() {
+	char* lines = strdup("");
+	if ((token = yylex()) == OR_BRACE) {
+		while (token != CR_BRACE) {
+			if ((token = yylex()) == NUMBER) {
+				lines = APPEND(lines,data);
+				if ((token = yylex()) == COMMA) {
+					lines = APPEND(lines,",");
+				}
+			} else {
+				fprintf(stderr,
+					"[%d] Listing mode: Number expected, but %s \"%s\" found\n",
+					yylineno, get_token_name(token), yytext);
+				return NULL;
+			}
+		}
+	}
+	return lines;
+}
+
+char* parse_highlighting() {
+	char* highlighting=strdup("linebackgroundcolor={");
+	while ((token = yylex()) != LSTEND) {
+		if (token == NUMBER) {
+			char *number = data;
+			char *lines = parse_hl_lines();
+			if (lines != NULL) {
+				char *frame = malloc(strlen(number)+strlen(lines)+11+1);
+				sprintf(frame,"\\btLstHL<%s>{%s}",number,lines);
+				highlighting = APPEND(highlighting,frame);
+			} else
+				return NULL;
+		} else {
+			fprintf(stderr,
+				"[%d] Listing mode: Number expected, but %s \"%s\" found\n",
+				yylineno, get_token_name(token), yytext);
+			return NULL;
+		}
+	}
+	return APPEND(highlighting,"},");
+}
+
 /*
  * process listings
  */
-int parse_listing_text() {
-	while ((token = yylex()) == LINE) {
-		fprintf(ofile,"%s", data);
-	}
-	if (token != LSTEND) {
-		fprintf(stderr,
-				"[%d] Listing mode: End of listing or listing expected, but %s \"%s\" found\n",
-				yylineno, get_token_name(token), yytext);
-		return 0;
-	} else {
-		fprintf(ofile,"\\end{lstlisting}\n");
+int parse_listing_text(const char *language, const char *caption) {
+	token = yylex();
+	char* buffer = data;
+	buffer[strlen(buffer)-3] = 0;
+	char* highlighting="";
+	switch(token) {
+	case LSTFRAME:
+		if ((highlighting = parse_highlighting()) == NULL)
+			return 0;
+	case LSTEND:
+		fprintf(ofile,"\\begin{lstlisting}[%sescapechar=@,",highlighting);
+		if (caption == NULL)
+			fprintf(ofile, "language=%s]\n", language);
+		else
+			fprintf(ofile, "language=%s,caption=%s]\n", language, caption);
+		fprintf(ofile,"%s\\end{lstlisting}\n", buffer);
 		token = yylex();
 		return 1;
+	default:
+		fprintf(stderr,
+			"[%d] Listing mode: End of listing or listing expected, but %s \"%s\" found\n",
+			yylineno, get_token_name(token), yytext);
+		return 0;
 	}
 }
 
 
 int parse_listing() {
-	fprintf(ofile,"\\begin{lstlisting}");
 	if ((token = yylex()) == ID) {
-		fprintf(ofile,"[escapechar=@,language=%s", data);
+		char *language = data;
 		if ((token = yylex()) == SEP) {
 			if ((token = yylex()) == LABEL) {
-				fprintf(ofile,",caption=%s]\n", data);
-				return parse_listing_text();
+				return parse_listing_text(language,data);
 			} else {
-				fprintf(stderr, "[%d] Listing mode: missing label for listing, found %s \"%s\" instead\n", yylineno, get_token_name(token), yytext);
+				fprintf(stderr, 
+					"[%d] Listing mode: missing label for listing, found %s \"%s\" instead\n", 
+					yylineno, get_token_name(token), yytext);
 				return 0;
 			}
 		} else if (token == HEAD_END) {
-			fprintf(ofile,"]\n");
-			return parse_listing_text();
+			return parse_listing_text(language,NULL);
 		} else {
 			fprintf(stderr, "[%d] Listing mode: Separator '-' expected\n", yylineno);
 			return 0;
 		}
 	} else {
-		fprintf(stderr, "[%d] Listing mode: Language name expected, but %s \"%s\"\n", yylineno, get_token_name(token), yytext);
+		fprintf(stderr, "[%d] Listing mode: Language name expected, but %s \"%s\"\n",
+			yylineno, get_token_name(token), yytext);
 		return 0;
 	}
 }
@@ -552,7 +609,7 @@ int parse_animation() {
 	while (token == NUMBER) {
 		numbers[numbers_max++] = data;
 		token = yylex();
-		if (token == PROP_SEP) 
+		if (token == COMMA) 
 			token = yylex();
 	}
 	if (token == PSEQ_START) {
@@ -600,14 +657,16 @@ char* parse_properties() {
 			result = strcat(realloc(result,
 				(result!=NULL?strlen(result):0)+strlen(data)+1),data);
 			break;
-		case PROP_SEP:
+		case COMMA:
 			result = strcat(realloc(result,
 				(result!=NULL?strlen(result):0)+2),",");
 			break;
 		case PSEQ_END:
 			break;
 		default:
-			fprintf(stderr, "[%d] Figure mode, property sequence: Missing ]. Found %s\n", yylineno,get_token_name(token));
+			fprintf(stderr, 
+				"[%d] Figure mode, property sequence: Missing ]. Found '%s'\n", 
+				yylineno,get_token_name(token));
 			return NULL;
 		}
 	}

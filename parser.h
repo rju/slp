@@ -41,7 +41,7 @@
 #define END          127
 #define OVERLAY_CODE 128
 #define PROPERTY     129
-#define PROP_SEP     130
+#define COMMA        130
 #define PART         131
 #define HEAD_END     132
 #define DESC_SEP     133
@@ -49,6 +49,9 @@
 #define C_BRACE      135
 #define ANIMATION    136
 #define NUMBER       137
+#define OR_BRACE     138
+#define CR_BRACE     139
+#define LSTFRAME     140
 
 #define ZERO         0
 

@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.69])
 AC_INIT(slp, 0.2, rju@informatik.uni-kiel.de)
-AM_INIT_AUTOMAKE(slp, 0.1)
+AM_INIT_AUTOMAKE(slp, 0.2)
 
 AM_CONFIG_HEADER(config.h)
 

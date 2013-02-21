@@ -15,7 +15,7 @@ int start_condition_top = 0; // start a lowest element
 %}
 
 DIGIT [0-9]
-ID [a-z][a-z0-9]*
+ID [A-Za-z0-9]
 OVERLAYCHAR [0-9\-,]
 VALUECHAR [A-Za-z0-9\_\\\.\"\{\}]
 LABELCHAR [^=\n\t]
@@ -31,6 +31,7 @@ LABELCHAR [^=\n\t]
 %x prop_value
 %x label
 %x number
+%x lstframe
 
 %%
 
@@ -100,7 +101,7 @@ LABELCHAR [^=\n\t]
 	return DESC_SEP;
 }
 
-<lsthead>" "{ID} {
+<lsthead>" "{ID}+ {
 	data = strcpy((char*)malloc(strlen(yytext)),yytext+1);
 	return ID;
 }
@@ -119,13 +120,26 @@ LABELCHAR [^=\n\t]
 	push(lst);
 	return LABEL;
 }
-<lst>"--\n" {
+<lst>(.*"\n")+"--\n" {
+	data = strcpy((char*)malloc(strlen(yytext)+1),yytext);
 	pop();
 	return LSTEND;
 }
-<lst>.*"\n" {
+<lst>(.*"\n")+"--[" {
 	data = strcpy((char*)malloc(strlen(yytext)+1),yytext);
-	return LINE;
+	pop();
+	push(lstframe);
+	return LSTFRAME;
+}
+<lstframe>"]\n" {
+	pop();
+	return LSTEND;
+}
+<lstframe>"(" {
+	return OR_BRACE;
+}
+<lstframe>")" {
+	return CR_BRACE;
 }
 
 <property>"[" {
@@ -135,15 +149,15 @@ LABELCHAR [^=\n\t]
 	pop(); 
 	return PSEQ_END;
 }
-<property>{ID}"="{VALUECHAR}+ {
+<property>{ID}+"="{VALUECHAR}+ {
 	data = strcpy((char*)malloc(strlen(yytext)+1),yytext);
 	return PROPERTY;
 }
-<property,number>"," {
-	return PROP_SEP;
+<property,number,lstframe>"," {
+	return COMMA;
 }
 
-<number>{DIGIT}* {
+<number,lstframe>{DIGIT}+ {
 	data = strcpy((char*)malloc(strlen(yytext)+1),yytext);
 	return NUMBER;
 }
