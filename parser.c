@@ -787,6 +787,7 @@ int parse_item_value(const char *mode) {
 	}
 }
 
+
 /*
  *
  */
@@ -802,7 +803,6 @@ int parse_item(int indent, const char *mode) {
 				return -1;
 			} else if ((token = yylex()) == VALUE) {
 				fprintf(ofile,"%s\n",string);
-				
 			}
 		} else {
 			fprintf(stderr, "<%s:%d> [%d] Description item mode: Missing label for item, got %s \"%s\" instead.\n",__FILE__,__LINE__, yylineno,get_token_name(token),yytext);
@@ -821,11 +821,13 @@ int parse_item(int indent, const char *mode) {
 
 	token = yylex();
 	do {
-		if (token == INDENT) {
+		switch (token) {
+		case INDENT: {
 			int indent_length = int_val;
 			if (indent==indent_length) { // same indent
 				if ((token = yylex()) == ITEM) {
-					if (!parse_item_value(mode)) return -1;
+					if (!parse_item_value(mode))
+						return -1;
 				} else {
 					fprintf(stderr,"<%s:%d> [%d] Item expected, but %s \"%s\" found.\n",__FILE__,__LINE__,yylineno,get_token_name(token),yytext);
 					return -1;
@@ -854,35 +856,33 @@ int parse_item(int indent, const char *mode) {
 					fprintf(stderr,"<%s:%d> [%d] Item expected, but %s \"%s\" found.\n",__FILE__,__LINE__,yylineno,get_token_name(token),yytext);
 					return -1;
 				}
-			}
-		} else {
-			switch (token) {
-			case ITEM: // go back all indent, base item list	
-				if (indent>1) {	
-					fprintf(ofile,"\\end{%s}\n",mode);
-					return 1;
-				} else if (!parse_item_value(mode)) 
-					return -1;
-				break;
-			case SECTION:
-			case FRAME:
-			case IMAGE:
-			case STRUCT:
-			case NEWLINE:
-			case EOF:
-			case COLUMN:
-			case COLUMN_SEP:
-			case END:
-			case CURLY_C_BRACE:
-			case ZERO: // leave frame => close all item list
+			}}
+			break;
+		case ITEM: // go back all indent, base item list	
+			if (indent>1) {	
 				fprintf(ofile,"\\end{%s}\n",mode);
-				return 0;
-			default:
-				fprintf(stderr, "<%s:%d> [%d] Top mode: %s \"%s\" not allowed in top mode.\n",__FILE__,__LINE__,
-										yylineno, get_token_name(token), yytext);
-				fprintf(stderr, "<%s:%d> Expected: item, indent, section, frame, image, structure ('), newline, or end of file\n",__FILE__,__LINE__);
+				return 1;
+			} else if (!parse_item_value(mode)) 
 				return -1;
-			}
+			break;
+		case SECTION:
+		case FRAME:
+		case IMAGE:
+		case STRUCT:
+		case NEWLINE:
+		case EOF:
+		case COLUMN:
+		case COLUMN_SEP:
+		case END:
+		case CURLY_C_BRACE:
+		case ZERO: // leave frame => close all item list
+			fprintf(ofile,"\\end{%s}\n",mode);
+			return 0;
+		default:
+			fprintf(stderr, "<%s:%d> [%d] Top mode: %s \"%s\" not allowed in top mode.\n",__FILE__,__LINE__,
+									yylineno, get_token_name(token), yytext);
+			fprintf(stderr, "<%s:%d> Expected: item, indent, section, frame, image, structure ('), newline, or end of file\n",__FILE__,__LINE__);
+			return -1;
 		}
 	} while (token != EOF);
 	fprintf(stderr, "<%s:%d> [%d] Item mode: Unhandled EOF\n",__FILE__,__LINE__, yylineno);
