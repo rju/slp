@@ -109,7 +109,8 @@ anim:1,2,3,4,5,6,7,8,9,10,11,12[width=\textwidth] animations/taxonomy
 
 > Base Type Integration
 
--- Java - Base Types of the Use Case Language for App Development --
+'Enumeration: Base type declaration
+-- Java - [1(2) 2(4,5,6)]
 public enum BaseTypes {
    BOOLEAN, INT, FLOAT, STRING; /* base types */
 
@@ -117,34 +118,86 @@ public enum BaseTypes {
       return this.name().toLowerCase();
    }
 }
---[1(2)]
+--
 
+\vskip10mm
+'From our example application: \url{http://build.se.informatik.uni-kiel.de/de.cau.cs.se.lad.git}
+
+> Base Type Integration
+
+'Embedding into Xtext
+anim:1,2,3,4,5[width=\textwidth] animations/type-system-overview
 
 > Grammar
 
--- Java - Base Types of the Use Case Language for App Development --
-public enum BaseTypes {
-   BOOLEAN, INT, FLOAT, STRING; /* base types */
+'Types
+-- Xtext - [1(1,4,6) 2(2) 3(4,5) 4(8)]
+Type returns type::Type: BaseType | UserType | ArrayType ;
+UserType returns type::UserType: ClassType | RecordType ;
 
-   public String lowerCaseName() {
-      return this.name().toLowerCase();
-   }
-}
---[1(2)]
+TypeReference returns type::TypeReference:
+{type::ArrayType} reference = [types::NamedType| ID] ( '[' sizes += INT ']' )+ |
+{type::TypeReference} reference = [types::NamedType| ID]  ('.' remainder=TypeReference )? ;
 
+MapType: {type::MapType} 'map' '<' key = TypeReference ',' value = TypeReference '>' ; 
+--
+
+> Grammar
+
+'Property Declaration
+-- Xtext - [1(1,2) 2(4,5,6,7)]
+PropertyDeclaration returns type::PropertyDeclaration:
+    modifiers += Modifier type = TypeReference name = ID ;
+
+FunctionDeclaration returns type::FunctionDeclaration:
+    modifiers += Modifier type = TypeReference name = ID 
+    '(' (parameters += ParameterDeclaration (',' parameters += ParameterDeclaration)*)? ')'
+    body = Body ;
+--
 
 > Type Resolution
 
--- Java - Base Types of the Use Case Language for App Development --
-public enum BaseTypes {
-   BOOLEAN, INT, FLOAT, STRING; /* base types */
+'Base Types and Type Reference
+-- Xtend - [2(1,2,3,4) 3(6,7,8,9)]
+    /** Determine type of a literal: here a boolean value */
+    def dispatch Type getActualType(BooleanValue value) {
+        return typeProvider.findTypeByName("boolean");
+    }
 
-   public String lowerCaseName() {
-      return this.name().toLowerCase();
-   }
-}
---[1(2)]
+    /** Recursive method to follow type references */
+    def dispatch Type getActualType(TypeReference ref) {
+        return ref.remainder?.actualType?:ref.reference;
+    }
+--
 
+- <1-> Use of Xtend signature-based dispatcher
+- <2-> Dispatch method returns type for boolean values
+- <3-> Dispatch method resolves type reference
+
+> Type Resolution
+
+'Declarations and Calls
+-- Xtend - [1(1,2,3,4) 2(6,7,8,9) 3(11,12,13,14) 4(16,17,18,19)]
+    /** Determine the type of a value, variable, or property declaration */
+    def dispatch Type getActualType(ValueDeclaration decl) {
+        return decl?.typeReference?.actualType;
+    }    
+
+    /** Determine the return type of a declared function */
+    def dispatch Type getActualType(FunctionDeclaration decl) {
+        return decl.type.actualType;
+    }
+
+    /** Determines the type of a value, variable, or property reference */
+    def dispatch Type getActualType(ValueReference ref) {
+        return ref?.reference?.actualType;
+    }
+
+    /** Determines the return type of a function call */
+    def dispatch Type getActualType(FunctionCall call) {
+        return call.functionRef.actualType;
+    }
+--
 
 > Target Language Integration
 

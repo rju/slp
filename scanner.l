@@ -2,6 +2,8 @@
 
 %{
 #include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
 #include "parser.h"
 
 // start condition stack
@@ -59,40 +61,35 @@ LABELCHAR [^=\n\t]
 "end:" { return END; }
 
 "<"{OVERLAYCHAR}+">" { 
-	data = strcpy((char*)malloc(strlen(yytext)+1),yytext);
+	string = yytext;
 	return OVERLAY_CODE; 
 }
 "{" {
-	return O_BRACE;
+	return CURLY_O_BRACE;
 }
 
 "}" {
-	return C_BRACE;
+	return CURLY_C_BRACE;
 }
 
 "\n" { return NEWLINE; } /* eat up whitespace */
 "\t"+ {
-	data = strcpy((char*)malloc(strlen(yytext)+1),yytext);
+	string = yytext;
 	return INDENT;
 }
-"  "+ {
-	data = (char*)malloc(strlen(yytext)/2+1);
-	int i;
-	char *ch = data;
-	for (i=0;i<strlen(yytext)/2;i++,ch++)
-		*ch='\t';
-	*ch=0;
+"  "+ { 
+	int_val = strlen(yytext)/2;
 	return INDENT;
 }
 " " { return SPACE; }
 
 <property,number>"<"{OVERLAYCHAR}+">" { 
-	data = strcpy((char*)malloc(strlen(yytext)+1),yytext);
+	string = yytext;
 	return OVERLAY_CODE; 
 }
 
 <label>{LABELCHAR}* {
-	data = strcpy((char*)malloc(strlen(yytext)+1),yytext);
+	string = yytext;
 	return LABEL;
 }
 <label>"=" {
@@ -102,55 +99,59 @@ LABELCHAR [^=\n\t]
 }
 
 <lsthead>" "{ID}+ {
-	data = strcpy((char*)malloc(strlen(yytext)),yytext+1);
+	string = yytext+1;
 	return ID;
 }
 <lsthead>" - " {
 	push(lstlabel);
-	return SEP;
+	return LST_SEPARATOR;
 }
+<lsthead>" - [" {
+	push(lstframe);
+	return LST_FRAME;
+}	
 <lsthead>"\n" {
-	pop();
-	push(lst);
-	return HEAD_END;
+	pop(); /* leave listing head */
+	push(lst); /* goto listing body mode */
+	return NEWLINE;
 }
 <lstlabel>.*" --\n" {
-	data = strncpy((char*)malloc(strlen(yytext)-2),yytext,strlen(yytext)-3);
+	string = yytext;
 	pop(); pop(); // label and head removed
 	push(lst);
 	return LABEL;
 }
-<lst>(.*"\n")+"--\n" {
-	data = strcpy((char*)malloc(strlen(yytext)+1),yytext);
-	pop();
-	return LSTEND;
-}
-<lst>(.*"\n")+"--[" {
-	data = strcpy((char*)malloc(strlen(yytext)+1),yytext);
-	pop();
-	push(lstframe);
-	return LSTFRAME;
-}
-<lstframe>"]\n" {
-	pop();
-	return LSTEND;
-}
-<lstframe>"(" {
-	return OR_BRACE;
-}
-<lstframe>")" {
-	return CR_BRACE;
+<lst>.*"\n" {
+	if (strcmp(yytext,"--\n") == 0) {
+		pop();
+		return LST_END;
+	} else {
+		string = yytext;
+		return LST_LINE;
+	}
 }
 
+<lstframe>"]" {
+	pop(); /* got back to lsthead */
+	return SQUARE_C_BRACE;
+}
+<lstframe>"(" {
+	return NORMAL_O_BRACE;
+}
+<lstframe>")" {
+	return NORMAL_C_BRACE;
+}
+<lstframe>[ \t]+  /* ignore whitespace */
+
 <property>"[" {
-	return PSEQ_START;
+	return SQUARE_O_BRACE;
 }
 <property>"]" {
-	pop(); 
-	return PSEQ_END;
+	pop(); /* end of properties */
+	return SQUARE_C_BRACE;
 }
 <property>{ID}+"="{VALUECHAR}+ {
-	data = strcpy((char*)malloc(strlen(yytext)+1),yytext);
+	string = yytext;
 	return PROPERTY;
 }
 <property,number,lstframe>"," {
@@ -158,16 +159,24 @@ LABELCHAR [^=\n\t]
 }
 
 <number,lstframe>{DIGIT}+ {
-	data = strcpy((char*)malloc(strlen(yytext)+1),yytext);
+	int_val = atoi(yytext);
+	string = yytext;
 	return NUMBER;
 }
 <number>"[" {
-	pop();
-	return PSEQ_START;
+	pop(); /* no more numbers, got to property sequence. Used by anim: */
+	return SQUARE_O_BRACE;
 }
 
-<value>.*"\n" {
-	data = strtrim(yytext);
+<value>.*"\n" { /* single prefix command value */
+	string = yytext;
+	while (isspace(*string))
+		string++;
+	char *last = string + strlen(string) -1;
+	while (isspace(*last)) {
+		*last = 0;
+		last--;
+	}
 	pop();
 	return VALUE;
 }

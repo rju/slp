@@ -10,12 +10,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <string.h>
 
 /* list of token names and descriptions */
 char *token_names[] = {
 	"title command","author command","date command","section command",
 	"image command","embedded listing",
-	"ID","separator","label","LINE","value",
+	"ID","separator","label","listing line","value",
 	"end of listing",
 	"start of parameter sequence",
 	"end of parameter sequence",
@@ -23,7 +24,7 @@ char *token_names[] = {
 	"NEWLINE","INDENT","space","UNCOVER",
 	"OVERLAY","ONLY","URL","column","column separator","end block","overlay range",
 	"property", "comma", "part", "end of listing head", "description separater",
-	"open brace", "close brace" };
+	"curly open brace", "curly close brace", "lst frames" };
 
 /* ------------------------------------ *
  * local function declaration for       *
@@ -50,16 +51,14 @@ int parse_column_sep();
 int parse_end();
 int parse_part();
 
-#define APPEND(buffer,value) strcat(realloc(buffer,strlen(buffer)+strlen(value)+1),value)
-
 /* ------------------------------------ */
 /* global properties                    */
 
-char *title, *author, *date; // properties for the whole document, could be used in future to generate the titlepage
-int token;		// token id of the last fetched token
+int token;		   // token id of the last fetched token
 int structure_count = 0;
 FILE *ofile;		   // the handle for the output file
-char* data = NULL;        // data contains the result string from the scanner
+char* string = NULL;       // data contains the result string from the scanner
+int int_val = 0;
 
 /* Contains the name and type of the active item list:
  * itemize, enumeration, description
@@ -68,6 +67,25 @@ char *item_type;
 
 /* ------------------------------------ */
 /* internal helper functions            */
+
+char *strduplicate(const char *src) {
+	int length = strlen(src)+1;
+	char *buffer = malloc(length*sizeof(char));
+	return strcpy(buffer,src);
+}
+
+char *strappend(char *dest, const char *src) {
+	if (src == NULL)
+		return dest;
+	else if (dest == NULL) {
+		return strduplicate(src);
+	} else {
+		char *result = malloc(strlen(dest)+strlen(src)+1);
+		strcpy(result,dest);
+		// free(dest); /* this should work */
+		return strcat(result,src);
+	}
+}
 
 /* Removes leading and trailing whitespaces.
  * The resulting string gets a new string object
@@ -163,7 +181,7 @@ int parse() {
  */
 int parse_part() {
 	if ((token = yylex()) == VALUE) {
-		fprintf(ofile,"\n\n%%%%%%\n\\part{%s}\n\n", data);
+		fprintf(ofile,"\n\n%%%%%%\n\\part{%s}\n\n", string);
 		token = yylex();
 		return 1;
 	} else {
@@ -177,7 +195,7 @@ int parse_part() {
  */
 int parse_section() {
 	if ((token = yylex()) == VALUE) {
-		fprintf(ofile,"\n%%%%\n\\section{%s}\n\n", data);
+		fprintf(ofile,"\n%%%%\n\\section{%s}\n\n", string);
 		token = yylex();
 		return 1;
 	} else {
@@ -198,7 +216,7 @@ int parse_frame() {
 	fprintf(ofile,"\\begin{frame}[fragile]\n");
 
 	if ((token = yylex()) == VALUE) {
-		fprintf(ofile,"\\frametitle{%s}\n", data);
+		fprintf(ofile,"\\frametitle{%s}\n", string);
 		token = yylex();
 		while (token != EOF) {
 			switch (token) {
@@ -270,12 +288,12 @@ int parse_frame_body(const char *command, const int subslide) {
 	int result = 0;
 	token = yylex();
 	if (token == OVERLAY_CODE) {
-		fprintf(ofile,"\\%s%s{",command,data);
+		fprintf(ofile,"\\%s%s{",command,string);
 		token = yylex();
 	} else {		
 		fprintf(ofile,"\\%s<%d->{",command,subslide);
 	}
-	if ( token == O_BRACE ) {
+	if ( token == CURLY_O_BRACE ) {
 		token = yylex();
 		result = parse_frame_body_loop (subslide);
 	} else {
@@ -283,7 +301,7 @@ int parse_frame_body(const char *command, const int subslide) {
 	}
 
 	fprintf(ofile,"}\n");
-	if ( token == C_BRACE )
+	if ( token == CURLY_C_BRACE )
 		token = yylex();
 	return result;
 }
@@ -320,13 +338,14 @@ int parse_frame_body_loop (const int subslide) {
 		case END:
 			if (parse_end() == -1) return 0;
 			break;
-		case C_BRACE:
+		case CURLY_C_BRACE:
 			return 1;
 		case NEWLINE: // ignore empty newline
 			token = yylex();
 			break;
 		default:
-			fprintf(stderr, "[%d] Frame mode: illegal token %s found.\n", yylineno, get_token_name(token));
+			fprintf(stderr, "[%d] Frame mode: illegal token %s found.\n", 
+				yylineno, get_token_name(token));
 			fprintf(stderr, "Expected commands: uncover (+), overlay (#), only (~), structure ('), image, listing, item or URL\n");
 			fprintf(stderr, "\tor end frame mode with: New frame, section, title, author, date or an end of file\n");
 			return 0;
@@ -391,11 +410,12 @@ int parse_end() {
 
 int parse_url() {
 	if ((token = yylex()) == VALUE) {
-		fprintf(ofile,"\\url{%s}\n",data);
+		fprintf(ofile,"\\url{%s}\n", string);
 		token = yylex();
 		return 1;
 	} else {
-		fprintf(stderr, "[%d] Title value expected, but %s found.\n", yylineno, get_token_name(token));
+		fprintf(stderr, "[%d] Title value expected, but %s found.\n", 
+			yylineno, get_token_name(token));
 		return 0;
 	}
 }
@@ -405,12 +425,12 @@ int parse_url() {
  */
 int parse_title() {
 	if ((token = yylex()) == VALUE) {
-		title = data;
-		fprintf(stderr, "Title: %s\n", title);
+		fprintf(stderr, "Title: %s\n", string); 
 		token = yylex();
 		return 1;
 	} else {
-		fprintf(stderr, "[%d] Title value expected, but %s found.\n", yylineno, get_token_name(token));
+		fprintf(stderr, "[%d] Title value expected, but %s found.\n", 
+			yylineno, get_token_name(token));
 		return 0;
 	}
 }
@@ -420,12 +440,12 @@ int parse_title() {
  */
 int parse_author() {
 	if ((token = yylex()) == VALUE) {
-		author = data;
-		fprintf(stderr, "Author: %s\n", author);
+		fprintf(stderr, "Author: %s\n", string); 
 		token = yylex();
 		return 1;
 	} else {
-		fprintf(stderr, "[%d] Author value expected, but %s found.\n", yylineno, get_token_name(token));
+		fprintf(stderr, "[%d] Author value expected, but %s found.\n", 
+			yylineno, get_token_name(token));
 		return 0;
 	}
 }
@@ -435,12 +455,12 @@ int parse_author() {
  */
 int parse_date() {
 	if ((token = yylex()) == VALUE) {
-		date = data;
-		fprintf(stderr, "Date: %s\n", date);
+		fprintf(stderr, "Date: %s\n", string); 
 		token = yylex();
 		return 1;
 	} else {
-		fprintf(stderr, "[%d] Date value expected, but %s found.\n", yylineno, get_token_name(token));
+		fprintf(stderr, "[%d] Date value expected, but %s found.\n",
+			yylineno, get_token_name(token));
 		return 0;
 	}
 }
@@ -449,13 +469,13 @@ int parse_date() {
 /* highlighting lines             */
 
 char* parse_hl_lines() {
-	char* lines = strdup("");
-	if ((token = yylex()) == OR_BRACE) {
-		while (token != CR_BRACE) {
+	char* lines = NULL;
+	if ((token = yylex()) == NORMAL_O_BRACE) {
+		while (token != NORMAL_C_BRACE) {
 			if ((token = yylex()) == NUMBER) {
-				lines = APPEND(lines,data);
+				lines = strappend(lines,string);
 				if ((token = yylex()) == COMMA) {
-					lines = APPEND(lines,",");
+					lines = strappend(lines,",");
 				}
 			} else {
 				fprintf(stderr,
@@ -465,21 +485,24 @@ char* parse_hl_lines() {
 			}
 		}
 	}
+
 	return lines;
 }
 
 char* parse_highlighting() {
-	char* highlighting=strdup("linebackgroundcolor={");
-	while ((token = yylex()) != LSTEND) {
+	char* highlighting = strduplicate("linebackgroundcolor={");
+	while ((token = yylex()) != SQUARE_C_BRACE) {
 		if (token == NUMBER) {
-			char *number = data;
-			char *lines = parse_hl_lines();
+			int number = int_val;
+			#define MAX_NUM_LENGTH 4
+			char* lines = parse_hl_lines();
 			if (lines != NULL) {
-				char *frame = malloc(strlen(number)+strlen(lines)+11+1);
-				sprintf(frame,"\\btLstHL<%s>{%s}",number,lines);
-				highlighting = APPEND(highlighting,frame);
-			} else
-				return NULL;
+				char *frame = malloc(MAX_NUM_LENGTH+strlen(lines)+11+1);
+				sprintf(frame,"\\btLstHL<%d>{%s}",number,lines);
+				highlighting = strappend(highlighting,frame);
+				// free(frame); /* should work */
+				free(lines);
+			}
 		} else {
 			fprintf(stderr,
 				"[%d] Listing mode: Number expected, but %s \"%s\" found\n",
@@ -487,62 +510,85 @@ char* parse_highlighting() {
 			return NULL;
 		}
 	}
-	return APPEND(highlighting,"},");
+	return strappend(highlighting,"},");
 }
 
 /*
  * process listings
  */
-int parse_listing_text(const char *language, const char *caption) {
-	token = yylex();
-	char* buffer = data;
-	buffer[strlen(buffer)-3] = 0;
-	char* highlighting="";
-	switch(token) {
-	case LSTFRAME:
-		if ((highlighting = parse_highlighting()) == NULL)
+int parse_listing_text(const char* language, const char* caption, const char* highlighting) {
+	char* buffer = strduplicate("");
+	while ((token = yylex()) != LST_END) {
+		if (token == LST_LINE) {
+			buffer = strappend(buffer,string);
+		} else {
+			free(buffer);
+			fprintf(stderr,
+				"[%d] Listing mode: End of listing or listing expected, but %s \"%s\" found\n",
+				yylineno, get_token_name(token), yytext);
 			return 0;
-	case LSTEND:
-		fprintf(ofile,"\\begin{lstlisting}[%sescapechar=@,",highlighting);
-		if (caption == NULL)
-			fprintf(ofile, "language=%s]\n", language);
-		else
-			fprintf(ofile, "language=%s,caption=%s]\n", language, caption);
-		fprintf(ofile,"%s\\end{lstlisting}\n", buffer);
-		token = yylex();
-		return 1;
-	default:
-		fprintf(stderr,
-			"[%d] Listing mode: End of listing or listing expected, but %s \"%s\" found\n",
-			yylineno, get_token_name(token), yytext);
-		return 0;
+		}
 	}
+	
+	fprintf(ofile,"\\begin{lstlisting}[%sescapechar=@,",highlighting);
+	if (caption == NULL)
+		fprintf(ofile, "language=%s]\n", language);
+	else
+		fprintf(ofile, "language=%s,caption=%s]\n", language, caption);
+	fprintf(ofile,"%s\\end{lstlisting}\n", buffer);
+	// free(buffer); /* should work */
+	token = yylex();
+	return 1;
 }
 
 
+char* parse_label() {
+	if ((token = yylex()) == LABEL) {
+		return string;	
+	} else {
+		fprintf(stderr, 
+			"[%d] Listing mode: missing label for listing, found %s \"%s\" instead\n", 
+			yylineno, get_token_name(token), yytext);
+		return NULL;
+	}
+}
+
 int parse_listing() {
+	int result = 0;
 	if ((token = yylex()) == ID) {
-		char *language = data;
-		if ((token = yylex()) == SEP) {
-			if ((token = yylex()) == LABEL) {
-				return parse_listing_text(language,data);
-			} else {
-				fprintf(stderr, 
-					"[%d] Listing mode: missing label for listing, found %s \"%s\" instead\n", 
-					yylineno, get_token_name(token), yytext);
-				return 0;
-			}
-		} else if (token == HEAD_END) {
-			return parse_listing_text(language,NULL);
-		} else {
-			fprintf(stderr, "[%d] Listing mode: Separator '-' expected\n", yylineno);
-			return 0;
+		char* language = strduplicate(string);
+		char* highlighting;
+		char* caption;
+
+		if ((token = yylex()) == LST_FRAME) { /* highlight rows in frame */
+			highlighting = parse_highlighting();
+			token = yylex();
+		} else 
+			highlighting = strduplicate("");
+		switch (token) {
+		case LST_SEPARATOR:
+			caption = strduplicate(parse_label());
+			result = parse_listing_text(language,caption,highlighting);
+			free(caption);
+			break;
+		case NEWLINE:
+			result = parse_listing_text(language,NULL,highlighting);
+			break;
+		default:
+			fprintf(stderr, 
+				"[%d] Listing mode: Separator '-' expected, found %s \"%s\" instead\n", 
+				yylineno, get_token_name(token), yytext);
+			result = 0;
+			break;
 		}
+		free(highlighting);
+		free(language);
 	} else {
 		fprintf(stderr, "[%d] Listing mode: Language name expected, but %s \"%s\"\n",
 			yylineno, get_token_name(token), yytext);
-		return 0;
+		result = 0;
 	}
+	return result;
 }
 
 /*
@@ -561,32 +607,40 @@ int parse_figure() {
  * process figures
  */
 int parse_figure_inner(int index) {
-	char *overlay_code = "";
+	char *overlay_code;
 
 	token = yylex();
 	if (token == OVERLAY_CODE) {
-		overlay_code = data;
+		overlay_code = strduplicate(string);
 		token = yylex();
-	}
-	if (token == PSEQ_START) {
+	} else
+		overlay_code = strduplicate("");
+	if (token == SQUARE_O_BRACE) {
 		char *properties;
 		if ((properties = parse_properties()) != NULL)  {
 			if ((token = yylex()) == VALUE) {
 				fprintf(ofile,"\\includegraphics%s[%s]{%s}\n",
-						overlay_code, properties, data);
+						overlay_code, properties, string);
+				free(overlay_code);
+				free(properties);
 				token = yylex();
 				if (token == IMAGE) // is an image group
 					parse_figure_inner(index+1);
 				return 1;
 			} else {
+				free(properties);
+				free(overlay_code);
 				fprintf(stderr, 
 					"[%d] Figure mode: Missing image, found %s instead\n",
 					yylineno, get_token_name(token));
 				return 0;
 			}
-		} else
+		} else {
+			free(overlay_code);
 			return 0;
+		}
 	} else {
+		free(overlay_code);
 		fprintf(stderr, "[%d] Figure mode: Missing [, found %s instead\n", 
 			yylineno, get_token_name(token));
 		return 0;
@@ -597,22 +651,22 @@ int parse_figure_inner(int index) {
  * process animations
  */
 int parse_animation() {
-	char **numbers = (char**)malloc(1000); // this is dirty in many ways.
+	int numbers[1000]; 
 	int numbers_max = 0;
 	char *overlay_code = NULL;
 
 	token = yylex();
 	if (token == OVERLAY_CODE) {
-		overlay_code = data;
+		overlay_code = strduplicate(string);
 		token = yylex();
 	}
 	while (token == NUMBER) {
-		numbers[numbers_max++] = data;
+		numbers[numbers_max++] = int_val;
 		token = yylex();
 		if (token == COMMA) 
 			token = yylex();
 	}
-	if (token == PSEQ_START) {
+	if (token == SQUARE_O_BRACE) {
 		char *properties;
 		if ((properties = parse_properties()) != NULL)  {
 			if ((token = yylex()) == VALUE) {
@@ -621,16 +675,20 @@ int parse_animation() {
 				else
 					fprintf(ofile,"\\begin{figure}\n");
 				for (int i=0;i<numbers_max;i++) {
-					fprintf(ofile,"\\includegraphics<%s>[%s,page=%s]{%s}\n",
-						numbers[i], properties, numbers[i], data);
+					fprintf(ofile,"\\includegraphics<%d>[%s,page=%d]{%s}\n",
+						numbers[i], properties, numbers[i], string);
 				}
 				if (overlay_code != NULL)
 					fprintf(ofile,"\\end{figure}}\n");
 				else
 					fprintf(ofile,"\\end{figure}\n");
+
+				free(properties);
+
 				token = yylex();
 				return 1;
 			} else {
+				free(properties);
 				fprintf(stderr, 
 					"[%d] Figure mode: Missing image, found %s instead\n",
 					yylineno, get_token_name(token));
@@ -650,18 +708,16 @@ int parse_animation() {
  * parse properties
  */
 char* parse_properties() {
-	char *result = strdup("");
-	while ((token = yylex()) != PSEQ_END) {
+	char *result = NULL;
+	while ((token = yylex()) != SQUARE_C_BRACE) {
 		switch (token) {
 		case PROPERTY:
-			result = strcat(realloc(result,
-				(result!=NULL?strlen(result):0)+strlen(data)+1),data);
+			result = strappend(result,string); 
 			break;
 		case COMMA:
-			result = strcat(realloc(result,
-				(result!=NULL?strlen(result):0)+2),",");
+			result = strappend(result,",");
 			break;
-		case PSEQ_END:
+		case SQUARE_C_BRACE:
 			break;
 		default:
 			fprintf(stderr, 
@@ -682,14 +738,15 @@ int parse_structure() {
 			fprintf(ofile,"\\vskip1em\n");
 		structure_count++;
 		char *sym;
-		for (sym=data; (*sym != 0) && (*sym != ':');sym++);
+		for (sym=string; (*sym != 0) && (*sym != ':');sym++);
 		if (*sym == ':') {
 			*sym = 0;
 			sym++;
-			fprintf(ofile,"\\structure{%s} %s\n", data, sym);
+			fprintf(ofile,"\\structure{%s} %s\n", string, sym);
 		} else {
-			fprintf(ofile,"\\structure{%s}\n", data);
+			fprintf(ofile,"\\structure{%s}\n", string);
 		}
+		
 		token = yylex();
 		return 1;
 	} else {
@@ -702,12 +759,14 @@ int parse_structure() {
 int parse_item_value(const char *mode) {
 	if (strcmp("description",mode) == 0) {
 		if ((token = yylex()) == LABEL) {
-			fprintf(ofile,"\\item[%s] ",data);
+			fprintf(ofile,"\\item[%s] ",string); 
 			if ((token = yylex()) != DESC_SEP) {
-				fprintf(stderr, "<%s:%d> [%d] Description item mode: Label-value-separator = expected, but %s \"%s\" found instead.\n",__FILE__,__LINE__, yylineno,get_token_name(token),yytext);
+				fprintf(stderr, 
+					"<%s:%d> [%d] Description item mode: Label-value-separator = expected, but %s \"%s\" found instead.\n",__FILE__,__LINE__, 
+					yylineno,get_token_name(token),yytext);
 				return 0;
 			} else if ((token = yylex()) == VALUE) {
-				fprintf(ofile,"%s\n",data);
+				fprintf(ofile,"%s\n",string); 
 				token = yylex();
 				return 1;
 			} else {
@@ -719,7 +778,7 @@ int parse_item_value(const char *mode) {
 			return 0;
 		}
 	} else if ((token = yylex()) == VALUE) {
-		fprintf(ofile,"\\item %s\n",data);
+		fprintf(ofile,"\\item %s\n",string);
 		token = yylex();
 		return 1;
 	} else {
@@ -731,16 +790,19 @@ int parse_item_value(const char *mode) {
 /*
  *
  */
-int parse_item(int indent, char *mode) {
+int parse_item(int indent, const char *mode) {
 	if (strcmp("description",mode) == 0) {
 		if ((token = yylex()) == LABEL) {
 			fprintf(ofile,"\\begin{%s}\n",mode);
-			fprintf(ofile,"\\item[%s] ",data);
+			fprintf(ofile,"\\item[%s] ",string);
+			
 			if ((token = yylex()) != DESC_SEP) {
-				fprintf(stderr, "<%s:%d> [%d] Description item mode: Label-value-separator = expected, but %s \"%s\" found instead.\n",__FILE__,__LINE__, yylineno,get_token_name(token),yytext);
+				fprintf(stderr, "<%s:%d> [%d] Description item mode: Label-value-separator = expected, but %s \"%s\" found instead.\n",__FILE__,__LINE__, 
+					yylineno,get_token_name(token),yytext);
 				return -1;
 			} else if ((token = yylex()) == VALUE) {
-				fprintf(ofile,"%s\n",data);
+				fprintf(ofile,"%s\n",string);
+				
 			}
 		} else {
 			fprintf(stderr, "<%s:%d> [%d] Description item mode: Missing label for item, got %s \"%s\" instead.\n",__FILE__,__LINE__, yylineno,get_token_name(token),yytext);
@@ -748,16 +810,19 @@ int parse_item(int indent, char *mode) {
 		}
 	} else if ((token = yylex()) == VALUE) { // first value
 		fprintf(ofile,"\\begin{%s}\n",mode);
-		fprintf(ofile,"\\item %s\n",data);
+		fprintf(ofile,"\\item %s\n",string);
 	} else {
-		fprintf(stderr, "<%s:%d> [%d] Item mode: Missing value for item, got %s \"%s\" instead\n",__FILE__,__LINE__, yylineno,get_token_name(token),yytext);
+		fprintf(stderr, 
+			"<%s:%d> [%d] Item mode: Missing value for item, got %s \"%s\" instead\n",
+			__FILE__,__LINE__, 
+			yylineno,get_token_name(token),yytext);
 		return -1;
 	}
 
 	token = yylex();
 	do {
 		if (token == INDENT) {
-			int indent_length = strlen(data)+1;
+			int indent_length = int_val;
 			if (indent==indent_length) { // same indent
 				if ((token = yylex()) == ITEM) {
 					if (!parse_item_value(mode)) return -1;
@@ -808,7 +873,7 @@ int parse_item(int indent, char *mode) {
 			case COLUMN:
 			case COLUMN_SEP:
 			case END:
-			case C_BRACE:
+			case CURLY_C_BRACE:
 			case ZERO: // leave frame => close all item list
 				fprintf(ofile,"\\end{%s}\n",mode);
 				return 0;
