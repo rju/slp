@@ -74,11 +74,11 @@ LABELCHAR [^=\n\t]
 
 "\n" { return NEWLINE; } /* eat up whitespace */
 "\t"+ {
-	string = yytext;
+	int_val = strlen(yytext) + 1;
 	return INDENT;
 }
 "  "+ { 
-	int_val = strlen(yytext)/2;
+	int_val = strlen(yytext)/2 + 1;
 	return INDENT;
 }
 " " { return SPACE; }

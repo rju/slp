@@ -1040,7 +1040,7 @@ case 25:
 YY_RULE_SETUP
 #line 76 "scanner.l"
 {
-	string = yytext;
+	int_val = strlen(yytext) + 1;
 	return INDENT;
 }
 	YY_BREAK
@@ -1048,7 +1048,7 @@ case 26:
 YY_RULE_SETUP
 #line 80 "scanner.l"
 { 
-	int_val = strlen(yytext)/2;
+	int_val = strlen(yytext)/2 + 1;
 	return INDENT;
 }
 	YY_BREAK
