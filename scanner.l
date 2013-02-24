@@ -82,6 +82,10 @@ LABELCHAR [^=\n\t]
 	return INDENT;
 }
 " " { return SPACE; }
+"\\"{VALUECHAR}+"\n" {
+	string = yytext;
+	return VALUE;
+}
 
 <property,number>"<"{OVERLAYCHAR}+">" { 
 	string = yytext;

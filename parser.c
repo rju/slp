@@ -256,6 +256,11 @@ int parse_frame() {
 			case END:
 				if (parse_end() == -1) return 0;
 				break;
+			case VALUE:
+				// mirror value to output
+				fprintf(ofile,"%s",string);
+				token = yylex();
+				break;
 			case FRAME:
 			case SECTION:
 			case TITLE:
@@ -269,7 +274,8 @@ int parse_frame() {
 				token = yylex();
 				break;
 			default:
-				fprintf(stderr, "[%d] Frame mode: illegal token %s found.\n", yylineno, get_token_name(token));
+				fprintf(stderr, "<%s:%d> [%d] Frame mode: illegal token %s found.\n", 
+					__FILE__,__LINE__,yylineno, get_token_name(token));
 				fprintf(stderr, "Expected commands: uncover (+), overlay (#), only (~), structure ('), image, listing, item or URL\n");
 				fprintf(stderr, "\tor end frame mode with: New frame, section, title, author, date or an end of file\n");
 				return 0;
@@ -277,7 +283,7 @@ int parse_frame() {
 		}
 		return 1;
 	} else {
-		fprintf(stderr, "[%d] Frame mode: expected value, but %s found.\n", yylineno, get_token_name(token));
+		fprintf(stderr, "<%s:%d> [%d] Frame mode: expected value, but %s found.\n", __FILE__,__LINE__, yylineno, get_token_name(token));
 		return 0;
 	}
 }
@@ -340,12 +346,17 @@ int parse_frame_body_loop (const int subslide) {
 			break;
 		case CURLY_C_BRACE:
 			return 1;
+		case VALUE:
+			// mirror value to output
+			fprintf(ofile,"%s",string);
+			token = yylex();
+			break;
 		case NEWLINE: // ignore empty newline
 			token = yylex();
 			break;
 		default:
-			fprintf(stderr, "[%d] Frame mode: illegal token %s found.\n", 
-				yylineno, get_token_name(token));
+			fprintf(stderr, "<%s:%d> [%d] Frame mode: illegal token %s found.\n", 
+				__FILE__,__LINE__,yylineno, get_token_name(token));
 			fprintf(stderr, "Expected commands: uncover (+), overlay (#), only (~), structure ('), image, listing, item or URL\n");
 			fprintf(stderr, "\tor end frame mode with: New frame, section, title, author, date or an end of file\n");
 			return 0;
@@ -395,6 +406,7 @@ int parse_column() {
  */
 int parse_column_sep() {
 	fprintf(ofile,"\\end{column}\n\\begin{column}{0.5\\textwidth}\n");
+	structure_count = 0;
 	token = yylex();
 	return 0;
 }
@@ -865,6 +877,7 @@ int parse_item(int indent, const char *mode) {
 			} else if (!parse_item_value(mode)) 
 				return -1;
 			break;
+		case VALUE:
 		case SECTION:
 		case FRAME:
 		case IMAGE:
