@@ -242,7 +242,7 @@ int parse_frame() {
 				if (!parse_listing()) return 0;
 				break;
 			case ITEM:
-				if (parse_item(1,item_type) == -1) return 0;
+				if (!parse_item(1,item_type)) return 0;
 				break;
 			case URL:
 				if (!parse_url()) return 0;
@@ -330,7 +330,7 @@ int parse_frame_body_loop (const int subslide) {
 			if (!parse_listing()) return 0;
 			break;
 		case ITEM:
-			if (parse_item(1,item_type) == -1) return 0;
+			if (!parse_item(1,item_type)) return 0;
 			break;
 		case URL:
 			if (!parse_url()) return 0;
@@ -772,30 +772,42 @@ int parse_item_value(const char *mode) {
 	if (strcmp("description",mode) == 0) {
 		if ((token = yylex()) == LABEL) {
 			fprintf(ofile,"\\item[%s] ",string); 
-			if ((token = yylex()) != DESC_SEP) {
-				fprintf(stderr, 
-					"<%s:%d> [%d] Description item mode: Label-value-separator = expected, but %s \"%s\" found instead.\n",__FILE__,__LINE__, 
-					yylineno,get_token_name(token),yytext);
-				return 0;
-			} else if ((token = yylex()) == VALUE) {
-				fprintf(ofile,"%s\n",string); 
-				token = yylex();
-				return 1;
+			if ((token = yylex()) == DESC_SEP) {
+				if ((token = yylex()) == VALUE) {
+					fprintf(ofile,"%s\n",string); 
+					token = yylex();
+					return 1;
+				} else {
+					fprintf(stderr, 
+						"<%s:%d> [%d] Item mode: Missing value for item, got %s \"%s\" instead.\n",
+						__FILE__,__LINE__, yylineno,get_token_name(token),yytext);
+					return 0;
+				}
 			} else {
-				fprintf(stderr, "<%s:%d> [%d] Item mode: Missing value for item, got %s \"%s\" instead.\n",__FILE__,__LINE__, yylineno,get_token_name(token),yytext);
+				fprintf(stderr, 
+					"<%s:%d> [%d] Description item mode: Label-value-separator = expected, but %s \"%s\" found instead.\n",
+					__FILE__,__LINE__, 
+					yylineno,get_token_name(token),yytext);
 				return 0;
 			}
 		} else {
-			fprintf(stderr, "<%s:%d> [%d] Description item mode: Missing label for item, got %s \"%s\" instead.\n",__FILE__,__LINE__, yylineno,get_token_name(token),yytext);
+			fprintf(stderr, 
+				"<%s:%d> [%d] Description item mode: Missing label for item, got %s \"%s\" instead.\n",
+				__FILE__,__LINE__,
+				yylineno,get_token_name(token),yytext);
 			return 0;
 		}
-	} else if ((token = yylex()) == VALUE) {
-		fprintf(ofile,"\\item %s\n",string);
-		token = yylex();
-		return 1;
 	} else {
-		fprintf(stderr, "<%s:%d> [%d] Item mode: Missing value for item, got %s \"%s\" instead.\n",__FILE__,__LINE__, yylineno,get_token_name(token),yytext);
-		return 0;
+		if ((token = yylex()) == VALUE) {
+			fprintf(ofile,"\\item %s\n",string);
+			token = yylex();
+			return 1;
+		} else {
+			fprintf(stderr, 
+				"<%s:%d> [%d] Item mode: Missing value for item, got %s \"%s\" instead.\n",
+				__FILE__,__LINE__, yylineno,get_token_name(token),yytext);
+			return 0;
+		}
 	}
 }
 
@@ -803,79 +815,46 @@ int parse_item_value(const char *mode) {
 /*
  *
  */
-int parse_item(int indent, const char *mode) {
-	if (strcmp("description",mode) == 0) {
-		if ((token = yylex()) == LABEL) {
-			fprintf(ofile,"\\begin{%s}\n",mode);
-			fprintf(ofile,"\\item[%s] ",string);
-			
-			if ((token = yylex()) != DESC_SEP) {
-				fprintf(stderr, "<%s:%d> [%d] Description item mode: Label-value-separator = expected, but %s \"%s\" found instead.\n",__FILE__,__LINE__, 
-					yylineno,get_token_name(token),yytext);
-				return -1;
-			} else if ((token = yylex()) == VALUE) {
-				fprintf(ofile,"%s\n",string);
-			}
-		} else {
-			fprintf(stderr, "<%s:%d> [%d] Description item mode: Missing label for item, got %s \"%s\" instead.\n",__FILE__,__LINE__, yylineno,get_token_name(token),yytext);
-			return -1;
-		}
-	} else if ((token = yylex()) == VALUE) { // first value
-		fprintf(ofile,"\\begin{%s}\n",mode);
-		fprintf(ofile,"\\item %s\n",string);
-	} else {
-		fprintf(stderr, 
-			"<%s:%d> [%d] Item mode: Missing value for item, got %s \"%s\" instead\n",
-			__FILE__,__LINE__, 
-			yylineno,get_token_name(token),yytext);
-		return -1;
-	}
+int parse_item(int present_indent, const char *mode) {
+	fprintf(ofile,"\\begin{%s}\n",mode);
+	if (!parse_item_value(mode))
+		return 0;
 
-	token = yylex();
-	do {
+	while (token != EOF) {
 		switch (token) {
-		case INDENT: {
-			int indent_length = int_val;
-			if (indent==indent_length) { // same indent
+		case INDENT: 
+			if (present_indent==int_val) { // same indent
 				if ((token = yylex()) == ITEM) {
 					if (!parse_item_value(mode))
-						return -1;
-				} else {
-					fprintf(stderr,"<%s:%d> [%d] Item expected, but %s \"%s\" found.\n",__FILE__,__LINE__,yylineno,get_token_name(token),yytext);
-					return -1;
-				}
-			} else if (indent>indent_length) { // less indent go back
-				fprintf(ofile,"\\end{%s}\n",mode);
-				return indent_length;
-			} else if (indent<indent_length) { // new indent go sub
-				if ((token = yylex()) == ITEM) {
-					int result = parse_item(indent+1,item_type);
-					if (result > 0) { // not an error
-						if (result < indent) {
-							fprintf(ofile,"\\end{%s}\n",mode);
-							return result;
-						} else	if (result == indent) {
-							if (!parse_item_value(mode)) return -1;
-						}
-					} else if (result == -1) {
-						return -1;
-					} else {
-						if (result < indent) 
-							fprintf(ofile,"\\end{%s}\n",mode);
 						return 0;
-					}
 				} else {
-					fprintf(stderr,"<%s:%d> [%d] Item expected, but %s \"%s\" found.\n",__FILE__,__LINE__,yylineno,get_token_name(token),yytext);
-					return -1;
+					fprintf(stderr,
+						"<%s:%d> [%d] Item expected, but %s \"%s\" found.\n",
+						__FILE__,__LINE__,yylineno,get_token_name(token),yytext);
+					return 0;
 				}
-			}}
-			break;
-		case ITEM: // go back all indent, base item list	
-			if (indent>1) {	
+			} else if (present_indent>int_val) { // less indent go back
 				fprintf(ofile,"\\end{%s}\n",mode);
 				return 1;
-			} else if (!parse_item_value(mode)) 
-				return -1;
+			} else if (present_indent<int_val) { // new indent go sub
+				if ((token = yylex()) == ITEM) {
+					if (!parse_item(int_val,item_type))
+						return 0;
+				} else {
+					fprintf(stderr,
+						"<%s:%d> [%d] Item expected, but %s \"%s\" found.\n",
+						__FILE__,__LINE__,yylineno,get_token_name(token),yytext);
+					return 0;
+				}
+			}
+			break;
+		case ITEM: // this means zero new_indent	
+			if (present_indent>1) {	
+				fprintf(ofile,"\\end{%s}\n",mode);
+				return 1;
+			} else 
+				if (!parse_item_value(mode))
+					return 0;
 			break;
 		case VALUE:
 		case SECTION:
@@ -890,16 +869,20 @@ int parse_item(int indent, const char *mode) {
 		case CURLY_C_BRACE:
 		case ZERO: // leave frame => close all item list
 			fprintf(ofile,"\\end{%s}\n",mode);
-			return 0;
+			return 1;
 		default:
-			fprintf(stderr, "<%s:%d> [%d] Top mode: %s \"%s\" not allowed in top mode.\n",__FILE__,__LINE__,
-									yylineno, get_token_name(token), yytext);
-			fprintf(stderr, "<%s:%d> Expected: item, indent, section, frame, image, structure ('), newline, or end of file\n",__FILE__,__LINE__);
-			return -1;
+			fprintf(stderr, 
+				"<%s:%d> [%d] Top mode: %s \"%s\" not allowed in top mode.\n",
+				__FILE__,__LINE__,
+				yylineno, get_token_name(token), yytext);
+			fprintf(stderr,
+				"<%s:%d> Expected: item, indent, section, frame, image, structure ('), newline, or end of file\n",
+				__FILE__,__LINE__);
+			return 0;
 		}
-	} while (token != EOF);
+	}
 	fprintf(stderr, "<%s:%d> [%d] Item mode: Unhandled EOF\n",__FILE__,__LINE__, yylineno);
-	return -1;
+	return 0;
 }
 
 

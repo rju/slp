@@ -1,0 +1,8 @@
+> A
+
+- References as
+  - Id only
+    - Unique runtime id
+  - Containment
+    - First byte = 1
+- Second main entry
