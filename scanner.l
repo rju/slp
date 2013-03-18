@@ -20,6 +20,7 @@ DIGIT [0-9]
 ID [A-Za-z0-9]
 OVERLAYCHAR [0-9\-,]
 VALUECHAR [A-Za-z0-9\_\\\.\"\{\}]
+EXTVALUECHAR [A-Za-z0-9\_\\\.\"\{\}:\[\]=,\-/ ]
 LABELCHAR [^=\n\t]
 
 %option header-file="scanner.h"
@@ -82,7 +83,7 @@ LABELCHAR [^=\n\t]
 	return INDENT;
 }
 " " { return SPACE; }
-"\\"{VALUECHAR}+"\n" {
+"\\"{EXTVALUECHAR}+"\n" {
 	string = yytext;
 	return VALUE;
 }
