@@ -13,3 +13,9 @@
 /stamp-h1
 /autom4te.cache
 
+/autoscan.log
+/config.log
+/.deps/slp-parser.Po
+/.deps/slp-scanner.Po
+/.deps/slp-slp.Po
+/slp
