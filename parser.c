@@ -542,7 +542,7 @@ int parse_listing_text(const char* language, const char* caption, const char* hi
 		}
 	}
 	
-	fprintf(ofile,"\\begin{lstlisting}[%sescapechar=@,",highlighting);
+	fprintf(ofile,"\\begin{lstlisting}[%sescapechar=\\\%,",highlighting);
 	if (caption == NULL)
 		fprintf(ofile, "language=%s]\n", language);
 	else
