@@ -20,6 +20,8 @@
 
 #include <config.h>
 
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,7 +44,7 @@
 #endif
 #define N_(Text) Text
 
-static error_t parse_opt (int key, char *arg, struct argp_state *state);
+static error_t parse_opt (int key, const char *arg, struct argp_state *state);
 static void show_version (FILE *stream, struct argp_state *state);
 
 /* argp option keys */
@@ -54,8 +56,7 @@ enum {DUMMY_KEY=129
 char *oname;			/* --output=FILE */
 FILE *ofile;
 
-static struct argp_option options[] =
-{
+static struct argp_option options[] = {
   { "output",      'o',           N_("FILE"),      0,
     N_("Send output to FILE instead of standard output"), 0 },
   { NULL, 0, NULL, 0, NULL, 0 }
@@ -65,8 +66,7 @@ static struct argp_option options[] =
 const char *argp_program_bug_address = "<rju@informatik.uni-kiel.de>";
 void (*argp_program_version_hook)(FILE *, struct argp_state *) = show_version;
 
-static struct argp argp =
-{
+static struct argp argp = {
   options, parse_opt, N_("[FILE...]"),
   N_("Simplify the writing of beamer tex slides by providing shorthand macros"),
   NULL, NULL, NULL
@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
 }
 
 /* Parse a single option.  */
-static error_t parse_opt(int key, char *arg, struct argp_state *state) {
+static error_t parse_opt(int key, const char *arg, struct argp_state *state) {
 	switch (key) {
 	case ARGP_KEY_INIT:
 		/* Set up default values.  */

@@ -542,7 +542,7 @@ int parse_listing_text(const char* language, const char* caption, const char* hi
 		}
 	}
 	
-	fprintf(ofile,"\\begin{lstlisting}[%sescapechar=\\\%,",highlighting);
+	fprintf(ofile,"\\begin{lstlisting}[%sescapechar=\\%%,",highlighting);
 	if (caption == NULL)
 		fprintf(ofile, "language=%s]\n", language);
 	else
@@ -688,7 +688,7 @@ int parse_animation() {
 					fprintf(ofile,"\\begin{figure}\n");
 				for (int i=0;i<numbers_max;i++) {
 					fprintf(ofile,"\\includegraphics<%d>[%s,page=%d]{%s}\n",
-						numbers[i], properties, numbers[i], string);
+						i+1, properties, numbers[i], string);
 				}
 				if (overlay_code != NULL)
 					fprintf(ofile,"\\end{figure}}\n");
