@@ -24,40 +24,141 @@ Comments are welcome.
 
 Simple language description:
 
-The processor work with different interpretation modes. On start it is in
+The processor works with different interpretation modes. On start it is in
 top mode. Top mode allows the definition of title, date, author, part, sections
-and frames. Whitespaces and newlines are ignored.
+and frames. Whitespaces and newlines are ignored. 
 
-To define a title write
+Note: In the present implementation title, date, and author are not used in the output.
+
+= Title =
+
+To define a title, write
 
 title: TITLE-TEXT
 
 TITLE-TEXT is a char sequence which ends with a newline \n
 
+= Other Title Page Elements =
+
 The commands date:, author: work similar. They can be used to define the author
 and the presentation date.
+
+= Separating Parts in a Presentation =
 
 The command part: followed by a char sequence (ends with newline) creates an
 \part{VALUE} in the output.
 
+= Defining Sections =
+
 The command sec: followed by a char sequence (ends with newline) creates an
 \section{VALUE} in the output.
 
-A frame is started with >. For example
+= Frame =
+
+A frame is started with > symbol.
+
+For example:
 
 > MY-FRAME-TITLE
 
 The must be a whitespace after the > and then the frame title is the following
-text until the newline.
+text until the newline. 
 
-Inside a frame another set of commands is valid. In that context structures can
-be defined with a line starting with '
+Inside a frame another set of commands is valid, as you are now in frame mode.
 
+= Structure or Paragraph =
+
+In frame mode, structures can be defined by line starting with '
+
+For example:
 'My Structure
 
-which generates to \structure{VALUE}
+The generator produces for that \structure{My Structure}
+If a colon (:) is used in a structure line, the section before the colon in positioned inside the structure command and the rest afterwards.
+
+Example:
+'Goal: Eat healthy food
+
+Results in:
+\structure{Goal} Eat healthy food
+
+Furthermore, if this is the second structure in one frame, a \vskip is used to separate it form the previous section.
+
+
+= Images =
 
 Images are created with img:[properties]file-reference
 
+
+= Animations =
+
+Animations work similar to images, with the difference that animations are sequences of images. All images of one animation must be contained as separate pages in a PDF file. 
+
+Example:
+amin:1,2,4,5,3,2,6[width=\textwidth]animation
+
+This example produces an animation with 7 overlays based on the content of the file animation.pdf
+It uses the pages 1,2,4,5,3,2,6 of the file in the given order.
+
+= Itemizing =
+
+A "- " (minus followed by a space) is an itemize entry. A Description is started by * and an enumeration with #. All followed by a space character. As a description requires a label, this is realized by a equal sign (=).
+
+Example:
+* My Label=My Text
+
+
+= Listings =
+
+A listing starts with -- followed by the language of the listing.
+
+Example:
+-- C
+#include<stdio.h>
+
+int main(int argc, const char *argv[]) {
+
+}
+--
+
+The name of the language can be followed by a single - sign surrounded by spaces. Indicating that more information is to come. If normal text follows afterwards, this text is used as caption.
+
+An [ indicates an highlighting animation for the language, which ends with an ].
+
+The syntax for highlighting is:
+(NUMBER ( '(' NUMBER ( ',' NUMBER )* ')' )? )*
+
+For example:
+1 2(3,4) 3(5)
+
+highlights nothing on the first frame (which could then be omitted), lines 3 and 4 on the second frame and line 5 on the third frame.
+
+
+= Overlays =
+
+$+ Uncover
+$# Overlay
+$~ Only
+
+After this initial characters, a sequence in <> brackets start. The overlay text in then enclosed in {}. Note: the final } must be on a new line.
+
+Example:
+$+<3>{'Meta-model changes result in generator code degradation
+}
+
+
+= Two Columns =
+
+A two column frame is started with
+col:
+followed by frame content, until
+sep:
+followed by more content, until
+end:
+
+
+= Final Notes =
+
+True the syntax is not using the same paradigm to code animation everywhere. Most likely an update is required. However, until know the tool served me well. And it saves a lot of typing.
 
 
