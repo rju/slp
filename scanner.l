@@ -50,7 +50,8 @@ LABELCHAR [^=\n\t]
 "- " {push(value); item_type = "itemize"; return ITEM;}
 "* " {push(label); item_type = "description"; return ITEM;}
 "--" {push(lsthead); return LISTING;}
-">" {push(value); return FRAME;}
+"> " {push(value); return FRAME;}
+">> " {push(value); return SUBTITLE;}
 "'" {push(value); return STRUCT;}
 "$+" {return UNCOVER;}
 "# " {push(value); item_type = "enumerate"; return ITEM;}

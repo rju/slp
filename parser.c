@@ -50,6 +50,7 @@ int parse_column();
 int parse_column_sep();
 int parse_end();
 int parse_part();
+int parse_subtitle();
 
 /* ------------------------------------ */
 /* global properties                    */
@@ -220,6 +221,9 @@ int parse_frame() {
 		token = yylex();
 		while (token != EOF) {
 			switch (token) {
+			case SUBTITLE:
+				if (!parse_subtitle()) return 0;
+				break;
 			case UNCOVER:
 				if (!parse_frame_body("uncover",subslide++)) return 0;
 				break;
@@ -423,6 +427,21 @@ int parse_end() {
 int parse_url() {
 	if ((token = yylex()) == VALUE) {
 		fprintf(ofile,"\\url{%s}\n", string);
+		token = yylex();
+		return 1;
+	} else {
+		fprintf(stderr, "[%d] Title value expected, but %s found.\n", 
+			yylineno, get_token_name(token));
+		return 0;
+	}
+}
+
+/*
+ * Parse frame subtitle
+ */
+int parse_subtitle() {
+	if ((token = yylex()) == VALUE) {
+		fprintf(ofile,"\\framesubtitle{%s}\n", string);
 		token = yylex();
 		return 1;
 	} else {

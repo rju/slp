@@ -52,6 +52,7 @@
 #define CURLY_O_BRACE  138
 #define CURLY_C_BRACE  139
 #define LST_FRAME      140
+#define SUBTITLE       141
 
 #define ZERO             0
 
