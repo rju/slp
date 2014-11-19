@@ -96,6 +96,15 @@ LABELCHAR [^=\n\t]
 	pop();
 	return END;
 }
+<copy>.*"\n" {
+	if (strcmp(yytext,"end:\n") == 0) {
+		pop();
+		return END;
+	} else {
+		string = yytext;
+		return LST_LINE;
+	}
+}
 
 <property,number>"<"{OVERLAYCHAR}+">" { 
 	string = yytext;
@@ -182,7 +191,7 @@ LABELCHAR [^=\n\t]
 	return SQUARE_O_BRACE;
 }
 
-<value,read>.*"\n" { /* single prefix command value */
+<value>.*"\n" { /* single prefix command value */
 	string = yytext;
 	while (isspace(*string))
 		string++;

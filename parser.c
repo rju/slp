@@ -457,7 +457,6 @@ int parse_url() {
 int parse_copy() {
 	while ((token = yylex()) != END) {
 		fprintf(ofile,"%s", string);
-		token = yylex();
 	}
 	token = yylex();
 	return 1;
