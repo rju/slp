@@ -61,6 +61,7 @@ LABELCHAR [^=\n\t]
 "col:" { return COLUMN; }
 "sep:" { return COLUMN_SEP; }
 "end:" { return END; }
+{DIGIT}+"."{DIGIT}+ { string = yytext; return NUMBER; }
 
 "<"{OVERLAYCHAR}+">" { 
 	string = yytext;

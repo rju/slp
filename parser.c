@@ -401,17 +401,28 @@ int parse_frame_body_single (const int subslide) {
 /* parser and renderer for start of two columns
  */
 int parse_column() {
-	fprintf(ofile,"\\begin{columns}[t]\n\\begin{column}{0.5\\textwidth}\n");
 	token = yylex();
+	if (token == NUMBER) {
+		token = yylex();
+	} else {
+		string = "0.5";
+	}
+	fprintf(ofile,"\\begin{columns}[t]\n\\begin{column}{%s\\textwidth}\n",strtrim(string));
+	structure_count = 0;
 	return 0;
 }
 
 /* parser and renderer for seperator of two columns
  */
 int parse_column_sep() {
-	fprintf(ofile,"\\end{column}\n\\begin{column}{0.5\\textwidth}\n");
-	structure_count = 0;
 	token = yylex();
+	if (token == NUMBER) {
+		token = yylex();
+	} else {
+		string = "0.5";
+	}
+	fprintf(ofile,"\\end{column}\n\\begin{column}{%s\\textwidth}\n",strtrim(string));
+	structure_count = 0;
 	return 0;
 }
 
