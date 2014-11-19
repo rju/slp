@@ -35,6 +35,7 @@ LABELCHAR [^=\n\t]
 %x label
 %x number
 %x lstframe
+%x copy
 
 %%
 
@@ -46,6 +47,7 @@ LABELCHAR [^=\n\t]
 "anim:" {push(value); push(property); push(number); return ANIMATION;}
 "url:" {push(value); return URL;}
 "part:" { push(value); return PART; }
+"copy:" { push(copy); return COPY; }
 
 "- " {push(value); item_type = "itemize"; return ITEM;}
 "* " {push(label); item_type = "description"; return ITEM;}
@@ -88,6 +90,11 @@ LABELCHAR [^=\n\t]
 "\\"{EXTVALUECHAR}+"\n" {
 	string = yytext;
 	return VALUE;
+}
+
+<copy>"end:" {
+	pop();
+	return END;
 }
 
 <property,number>"<"{OVERLAYCHAR}+">" { 
@@ -175,7 +182,7 @@ LABELCHAR [^=\n\t]
 	return SQUARE_O_BRACE;
 }
 
-<value>.*"\n" { /* single prefix command value */
+<value,read>.*"\n" { /* single prefix command value */
 	string = yytext;
 	while (isspace(*string))
 		string++;

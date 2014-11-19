@@ -46,6 +46,7 @@ int parse_frame_body(const char *commanf, const int subslide);
 int parse_frame_body_loop (const int subslide);
 int parse_frame_body_single (const int subslide);
 int parse_url();
+int parse_copy();
 int parse_column();
 int parse_column_sep();
 int parse_end();
@@ -251,6 +252,9 @@ int parse_frame() {
 			case URL:
 				if (!parse_url()) return 0;
 				break;
+			case COPY:
+				if (!parse_copy()) return 0;
+				break;
 			case COLUMN:
 				if (parse_column() == -1) return 0;
 				break;
@@ -391,6 +395,9 @@ int parse_frame_body_single (const int subslide) {
 	case URL:
 		return parse_url();
 		break;
+	case COPY:
+		return parse_copy();
+		break;
 	default:
 		fprintf(stderr,"[%d] Overlay mode: Illegal token %s\n", yylineno, get_token_name(token));
 		fprintf(stderr,"Expected commands: structure ('), image, listing, item and URL\n");
@@ -445,6 +452,15 @@ int parse_url() {
 			yylineno, get_token_name(token));
 		return 0;
 	}
+}
+
+int parse_copy() {
+	while ((token = yylex()) != END) {
+		fprintf(ofile,"%s", string);
+		token = yylex();
+	}
+	token = yylex();
+	return 1;
 }
 
 /*

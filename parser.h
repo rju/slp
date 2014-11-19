@@ -43,7 +43,7 @@
 #define PROPERTY       129
 #define COMMA          130
 #define PART           131
-
+#define COPY           132
 #define DESC_SEP       133
 #define NORMAL_O_BRACE 134
 #define NORMAL_C_BRACE 135
