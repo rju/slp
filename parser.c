@@ -58,7 +58,7 @@ int parse_subtitle();
 
 int token;		   // token id of the last fetched token
 int structure_count = 0;
-FILE *ofile;		   // the handle for the output file
+extern FILE *ofile;		   // the handle for the output file
 char* string = NULL;       // data contains the result string from the scanner
 int int_val = 0;
 
@@ -66,6 +66,8 @@ int int_val = 0;
  * itemize, enumeration, description
  */
 char *item_type;
+
+char *alignment_mode;
 
 /* ------------------------------------ */
 /* internal helper functions            */
@@ -676,6 +678,11 @@ int parse_figure_inner(int index) {
 		char *properties;
 		if ((properties = parse_properties()) != NULL)  {
 			if ((token = yylex()) == VALUE) {
+				if (alignment_mode != NULL) {
+					fprintf(ofile,"\\%s\n", alignment_mode);
+					free(alignment_mode);
+					alignment_mode = NULL;
+				}
 				fprintf(ofile,"\\includegraphics%s[%s]{%s}\n",
 						overlay_code, properties, string);
 				free(overlay_code);
@@ -765,14 +772,24 @@ int parse_animation() {
  * parse properties
  */
 char* parse_properties() {
+	alignment_mode = NULL;
 	char *result = NULL;
+	int ignore = 0;
 	while ((token = yylex()) != SQUARE_C_BRACE) {
 		switch (token) {
 		case PROPERTY:
-			result = strappend(result,string); 
+		    result = strappend(result,string);
+			break;
+		case VALUE:
+			alignment_mode = strduplicate(string);
+			ignore = 1;
 			break;
 		case COMMA:
-			result = strappend(result,",");
+			if (ignore) {
+				ignore = 0;
+			} else {
+				result = strappend(result,",");
+			}
 			break;
 		case SQUARE_C_BRACE:
 			break;

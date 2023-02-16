@@ -177,6 +177,10 @@ LABELCHAR [^=\n\t]
 	string = yytext;
 	return PROPERTY;
 }
+<property>{ID}+ {
+    string = yytext;
+    return VALUE;
+}
 <property,number,lstframe>"," {
 	return COMMA;
 }
